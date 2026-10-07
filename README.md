@@ -4,6 +4,14 @@ I got tired of screenshots clogging the Desktop and then having to go look for t
 
 ShotPanel is a native macOS app. It does not take the screenshot. Cmd-Shift-3, Cmd-Shift-4, and Cmd-Shift-5 work as they do now. The panel only gathers the files macOS saves itself, the ones named Screenshot or Screen Shot. Other pictures stay where they are.
 
+## Download
+
+ShotPanel is free to use, distribute, and modify under the [MIT license](LICENSE).
+
+[Download ShotPanel 1.0.0](https://github.com/douglaskarr/ShotPanel/releases/download/v1.0.0/ShotPanel-1.0.0.dmg) for macOS 14 or later.
+
+Open the disk image and drag ShotPanel to Applications. The first time you open it, macOS may say it cannot verify the developer. Right-click ShotPanel, choose Open, then Open again. macOS may also ask before ShotPanel can read the Desktop.
+
 ## What it does
 
 The newest shot sits at the start of the list, large enough to read. Drag an edge or a corner and the panel keeps that size. When several shots fit, they sit side by side with space between them, and the next one shows as a faded sliver at the edge. A single shot scales down so the whole image stays inside the panel.
