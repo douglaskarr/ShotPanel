@@ -8,7 +8,7 @@ ShotPanel is a native macOS app. It does not take the screenshot. Cmd-Shift-3, C
 
 <video src="docs/ShotPanel-overview.mp4" width="720" controls></video>
 
-[Watch the 24-second overview](docs/ShotPanel-overview.mp4). The same film is on the [1.1.0 release](https://github.com/douglaskarr/ShotPanel/releases/download/v1.1.0/ShotPanel-overview.mp4).
+[Watch the 48-second overview](docs/ShotPanel-overview.mp4). The same film is on the [1.1.0 release](https://github.com/douglaskarr/ShotPanel/releases/download/v1.1.0/ShotPanel-overview.mp4).
 
 ## Download
 
