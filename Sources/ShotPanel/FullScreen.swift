@@ -27,6 +27,18 @@ enum FullScreen {
         return (current?["type"] as? Int) == fullScreenSpaceType
     }
 
+    /// Desktops across all displays. Unknown answers as more than one, so a
+    /// Dock reload is skipped when it might pull every desktop's windows here.
+    static func spaceCount() -> Int {
+        guard let displays = CGSCopyManagedDisplaySpaces(CGSMainConnectionID()) as? [[String: Any]] else {
+            return 2
+        }
+        let count = displays.reduce(0) { sum, display in
+            sum + ((display["Spaces"] as? [Any])?.count ?? 0)
+        }
+        return count > 0 ? count : 2
+    }
+
     private static func uuidString(for screen: NSScreen) -> String? {
         guard let number = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID,
               let uuid = CGDisplayCreateUUIDFromDisplayID(number)?.takeRetainedValue() else { return nil }

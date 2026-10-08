@@ -6,7 +6,7 @@ cd "$(dirname "$0")/.."
 
 CONFIG="${1:-release}"
 APP="build/ShotPanel.app"
-VERSION="1.0.0"
+VERSION="1.1.0"
 
 build_arch() {
   local triple="$1-apple-macosx14.0"
@@ -57,12 +57,16 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundleIconFile</key><string>ShotPanel</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>${VERSION}</string>
-  <key>CFBundleVersion</key><string>1</string>
+  <key>CFBundleVersion</key><string>2</string>
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>NSHighResolutionCapable</key><true/>
   <key>NSSupportsAutomaticTermination</key><false/>
   <key>NSSupportsSuddenTermination</key><false/>
   <key>NSDesktopFolderUsageDescription</key>
+  <string>ShotPanel watches the folder where macOS saves your screenshots so it can gather them into one panel.</string>
+  <key>NSDocumentsFolderUsageDescription</key>
+  <string>ShotPanel watches the folder where macOS saves your screenshots so it can gather them into one panel.</string>
+  <key>NSDownloadsFolderUsageDescription</key>
   <string>ShotPanel watches the folder where macOS saves your screenshots so it can gather them into one panel.</string>
 </dict>
 </plist>

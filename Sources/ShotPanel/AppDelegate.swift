@@ -1,4 +1,5 @@
 import AppKit
+import ServiceManagement
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelegate {
@@ -16,6 +17,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
     private var userHidden = false
     private var hiddenForFullScreen = false
     private var layingOut = false
+    /// False until the folder permission and the login question are finished.
+    private var started = false
 
     private static let maxXKey = "shotpanel.anchorMaxX"
     private static let minYKey = "shotpanel.anchorMinY"
@@ -25,6 +28,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
     func applicationDidFinishLaunching(_ notification: Notification) {
         ProcessInfo.processInfo.disableAutomaticTermination("Watching for screenshots")
         ProcessInfo.processInfo.disableSuddenTermination()
+        NSApp.setActivationPolicy(.regular)
+        installMainMenu()
+        installStatusItem()
+        // Be the front app before the first look at the Desktop, so the
+        // system permission question is the window in front. A remote
+        // session can still draw that question only on the Mac itself.
+        NSApp.activate()
+        guard LaunchGate.pass() else {
+            NSApp.terminate(nil)
+            return
+        }
+        started = true
 
         hover = HoverRoot(shelf: shelf)
         hover.onHover = { [weak self] inside in
@@ -59,8 +74,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         shelf.onResizeEnd = { [weak self] in self?.commitSize() }
         shelf.boot()
 
-        installStatusItem()
         observeSpaces()
+        installKeyMonitor()
         applyMetrics()
         relayout(animated: false)
         applyVisibility()
@@ -75,6 +90,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        guard started else { return false }
         showPanel()
         return false
     }
@@ -83,11 +99,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         relayout(animated: false)
     }
 
+    func windowDidBecomeKey(_ notification: Notification) {
+        shelf.setWindowKey(true)
+    }
+
+    func windowDidResignKey(_ notification: Notification) {
+        shelf.setWindowKey(false)
+    }
+
+    /// Command-Q works once the panel is clicked. The menu bar icon stays
+    /// available when the panel is not the front window.
+    private func installMainMenu() {
+        let appMenu = NSMenu()
+        let quit = NSMenuItem(title: "Quit ShotPanel", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        appMenu.addItem(quit)
+        let appItem = NSMenuItem()
+        appItem.submenu = appMenu
+        let main = NSMenu()
+        main.addItem(appItem)
+        NSApp.mainMenu = main
+    }
+
     private func installStatusItem() {
-        status = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        status = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         let image = NSImage(systemSymbolName: "photo.on.rectangle.angled", accessibilityDescription: "ShotPanel")
         image?.isTemplate = true
         status.button?.image = image
+        status.button?.title = "ShotPanel"
+        status.button?.imagePosition = .imageLeading
         status.button?.toolTip = "ShotPanel"
         menu = NSMenu()
         menu.delegate = self
@@ -96,6 +135,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
 
     func menuWillOpen(_ menu: NSMenu) {
         menu.removeAllItems()
+        guard started else {
+            let quit = NSMenuItem(title: "Quit ShotPanel", action: #selector(quit), keyEquivalent: "q")
+            quit.target = self
+            menu.addItem(quit)
+            return
+        }
         let inbox = NSMenuItem(
             title: "Keep Screenshots off the Desktop",
             action: #selector(toggleInbox),
@@ -129,10 +174,55 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         delete.isEnabled = shelf.totalCount > 0
         menu.addItem(delete)
 
+        let login = NSMenuItem(title: "Open at Login", action: #selector(toggleLogin), keyEquivalent: "")
+        login.target = self
+        login.state = LoginItem.isOn ? .on : .off
+        menu.addItem(login)
+
+        if DockStack.needsDockReload {
+            menu.addItem(.separator())
+            let dock = NSMenuItem(
+                title: "Show Screenshots in the Dock",
+                action: #selector(reloadDockFromMenu),
+                keyEquivalent: ""
+            )
+            dock.target = self
+            menu.addItem(dock)
+        }
+
         menu.addItem(.separator())
         let quit = NSMenuItem(title: "Quit ShotPanel", action: #selector(quit), keyEquivalent: "q")
         quit.target = self
         menu.addItem(quit)
+    }
+
+    /// Arrow keys move the row. A remote session often has a pointer and no swipe.
+    private func installKeyMonitor() {
+        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self else { return event }
+            guard event.modifierFlags.intersection([.command, .control, .option]).isEmpty else { return event }
+            let older: Bool?
+            switch event.keyCode {
+            case 123, 126: older = false
+            case 124, 125: older = true
+            default: older = nil
+            }
+            guard let older else { return event }
+            let before = self.shelf.carouselPage.appliedOffset
+            self.shelf.step(older: older)
+            return self.shelf.carouselPage.appliedOffset == before ? event : nil
+        }
+    }
+
+    @objc private func reloadDockFromMenu() {
+        let alert = NSAlert()
+        alert.messageText = "Reload the Dock to show screenshots?"
+        alert.informativeText = "ShotPanel adds a folder beside the Trash. Reloading the Dock can gather windows from your other desktops onto this one."
+        alert.addButton(withTitle: "Reload the Dock")
+        alert.addButton(withTitle: "Not Now")
+        if alert.runModal() == .alertFirstButtonReturn {
+            DockStack.reloadDock()
+        }
     }
 
     @objc private func toggleInbox() {
@@ -158,6 +248,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
 
     @objc private func quit() {
         NSApp.terminate(nil)
+    }
+
+    @objc private func toggleLogin() {
+        if LoginItem.isOn {
+            LoginItem.disable()
+            return
+        }
+        switch LoginItem.enable() {
+        case .enabled:
+            break
+        case .needsApproval:
+            let alert = NSAlert()
+            alert.messageText = "Allow ShotPanel in Login Items"
+            alert.informativeText = "macOS needs a confirmation in System Settings → General → Login Items. That pane is open."
+            alert.addButton(withTitle: "OK")
+            SMAppService.openSystemSettingsLoginItems()
+            alert.runModal()
+        case .failed(let message):
+            let alert = NSAlert()
+            alert.messageText = "ShotPanel could not open at login"
+            alert.informativeText = "\(message) Move ShotPanel into the Applications folder, then choose Open at Login again."
+            alert.addButton(withTitle: "OK")
+            alert.runModal()
+        }
     }
 
     private func observeSpaces() {
@@ -261,11 +375,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
     }
 
     private func offerIfNeeded() {
-        guard !Inbox.wasOffered, !shelf.inboxOn else { return }
-        NSApp.activate()
+        guard !Inbox.wasOffered, !shelf.inboxOn, !shelf.folderBlocked else { return }
         let alert = NSAlert()
         alert.messageText = "Keep screenshots in ShotPanel?"
-        alert.informativeText = "Screenshots already in your screenshot folder move into the panel. New ones skip the Desktop while ShotPanel is open. The floating thumbnail is turned off, and your previous save location comes back when you quit. You can change this from the menu bar icon."
+        alert.informativeText = "Screenshots already in your screenshot folder move into the panel. New ones skip the Desktop while ShotPanel is open. The floating thumbnail is turned off, and your previous save location comes back when you quit. If macOS asks to read the Desktop, choose Allow. That question can show on the Mac itself during screen sharing. Quit from the ShotPanel menu, the menu bar icon, or with Command-Q."
         alert.addButton(withTitle: "Keep Desktop Clear")
         alert.addButton(withTitle: "Not Now")
         Inbox.wasOffered = true

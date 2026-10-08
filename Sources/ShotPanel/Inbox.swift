@@ -43,6 +43,18 @@ enum Inbox {
         return false
     }
 
+    /// The folder named in screenshot settings, or the Desktop.
+    /// Does not look at the disk, so it does not raise the permission question.
+    static func configuredSaveFolder() -> URL {
+        CFPreferencesAppSynchronize(domain)
+        let raw = (CFPreferencesCopyAppValue(screenshotLocationKey, domain) as? String)
+            ?? (CFPreferencesCopyAppValue(locationKey, domain) as? String)
+        if let raw, !raw.isEmpty {
+            return URL(fileURLWithPath: (raw as NSString).expandingTildeInPath, isDirectory: true)
+        }
+        return FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Desktop", isDirectory: true)
+    }
+
     /// The folder macOS is saving screenshots to right now, or the Desktop.
     static func currentSaveFolder() -> URL {
         CFPreferencesAppSynchronize(domain)

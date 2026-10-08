@@ -17,7 +17,10 @@ final class ShelfPanel: NSWindow {
         backgroundColor = .clear
         hasShadow = true
         level = .floating
-        collectionBehavior = [.canJoinAllSpaces, .ignoresCycle]
+        // Stay on the desktop the user is already on. Joining every space
+        // pulls them out of the one they were using and shows every window.
+        collectionBehavior = [.moveToActiveSpace]
+        acceptsMouseMovedEvents = true
         hidesOnDeactivate = false
         isMovable = true
         isMovableByWindowBackground = false
@@ -29,7 +32,7 @@ final class ShelfPanel: NSWindow {
     }
 
     override var canBecomeKey: Bool { true }
-    override var canBecomeMain: Bool { false }
+    override var canBecomeMain: Bool { true }
 
     /// Borderless windows only reach the Dock when this bit is set, and the
     /// app has to be active or macOS drops the miniaturize.

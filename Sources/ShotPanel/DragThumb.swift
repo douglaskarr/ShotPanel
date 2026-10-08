@@ -211,6 +211,11 @@ struct CardControl: NSViewRepresentable {
         view.vertical = shelf.axis == .vertical
         view.alignHitArea()
         view.onScrub = { shelf.scrub(by: $0) }
+        view.onStepOlder = { shelf.step(older: true) }
+        view.onStepNewer = { shelf.step(older: false) }
+        view.arrowsVisible = shelf.pointerInside || shelf.windowIsKey
+        view.showsOlder = page.showsOlder
+        view.showsNewer = page.showsNewer
         view.menuProvider = { [weak view] in
             shelf.panelMenu(for: shelf.shot(path: view?.activePath))
         }
@@ -296,9 +301,15 @@ final class CardView: NSView, NSDraggingSource {
     /// this view's cached frames catch up, so every click reloads them.
     var sync: () -> Void = {}
     var onScrub: (CGFloat) -> Void = { _ in }
+    var onStepOlder: () -> Void = {}
+    var onStepNewer: () -> Void = {}
+    /// Scroll arrows are drawn while the pointer is over the panel or it is key.
+    var arrowsVisible = false
+    var showsOlder = false
+    var showsNewer = false
     var menuProvider: () -> NSMenu = { NSMenu() }
 
-    private enum Press { case none, card, deleteAll, commitAll, cancelAll, commitShot, cancelShot, minimize, move, copyShot, deleteShot, clearSelection, scrub, cancelled }
+    private enum Press { case none, card, deleteAll, commitAll, cancelAll, commitShot, cancelShot, minimize, move, copyShot, deleteShot, clearSelection, scrub, stepOlder, stepNewer, cancelled }
     private var press: Press = .none
     private var downPoint: NSPoint?
     /// A drag that starts on a photo exports that one file. The row slides
@@ -380,6 +391,14 @@ final class CardView: NSView, NSDraggingSource {
         let photo = photo(at: point)
         if hero, minimizeRect.contains(point) {
             press = .minimize
+            return
+        }
+        if hero, arrowsVisible, showsNewer, arrowRect(older: false).insetBy(dx: -6, dy: -6).contains(point) {
+            press = .stepNewer
+            return
+        }
+        if hero, arrowsVisible, showsOlder, arrowRect(older: true).insetBy(dx: -6, dy: -6).contains(point) {
+            press = .stepOlder
             return
         }
         if allowsDeleteAll, confirmingDeleteAll, yesRect.insetBy(dx: -4, dy: -4).contains(point) {
@@ -511,9 +530,9 @@ final class CardView: NSView, NSDraggingSource {
         let dx = point.x - start.x
         let dy = point.y - start.y
         let distance = hypot(dx, dy)
-        let onButton = press == .copyShot || press == .deleteShot || press == .commitShot || press == .cancelShot || press == .deleteAll || press == .commitAll || press == .cancelAll
+        let onButton = press == .copyShot || press == .deleteShot || press == .commitShot || press == .cancelShot || press == .deleteAll || press == .commitAll || press == .cancelAll || press == .stepOlder || press == .stepNewer
         guard distance > (onButton ? 22 : 8) else { return }
-        if press == .deleteAll || press == .commitAll || press == .cancelAll || press == .cancelShot || press == .minimize {
+        if press == .deleteAll || press == .commitAll || press == .cancelAll || press == .cancelShot || press == .minimize || press == .stepOlder || press == .stepNewer {
             press = .cancelled
             return
         }
@@ -587,6 +606,10 @@ final class CardView: NSView, NSDraggingSource {
             onCommitShot()
         case .cancelShot where distance < 22:
             onCancelShot()
+        case .stepOlder where distance < 14:
+            onStepOlder()
+        case .stepNewer where distance < 14:
+            onStepNewer()
         case .clearSelection where distance < 8:
             onClearSelection()
         case .card:
@@ -643,6 +666,20 @@ final class CardView: NSView, NSDraggingSource {
 
     private var minimizeRect: NSRect {
         NSRect(x: discardInset, y: discardInset, width: discardSize, height: discardSize)
+    }
+
+    /// Matches the chevron drawn on that edge of the photo row.
+    private func arrowRect(older: Bool) -> NSRect {
+        let side: CGFloat = 28
+        let heroHeight = max(0, bounds.height - footerHeight)
+        if vertical {
+            let x = (bounds.width - side) / 2
+            let y = older ? heroHeight - side - 8 : 8
+            return NSRect(x: x, y: y, width: side, height: side)
+        }
+        let y = (heroHeight - side) / 2
+        let x = older ? bounds.width - side - 8 : 8
+        return NSRect(x: x, y: y, width: side, height: side)
     }
 
     private var footerRect: NSRect {

@@ -43,11 +43,16 @@ final class Shelf: ObservableObject {
     /// True when new screenshots are still saved on the Desktop.
     @Published private(set) var watchesDesktop = true
     @Published private(set) var totalCount = 0
+    /// The pointer is over the widget, including during screen sharing.
+    @Published private(set) var pointerInside = false
+    /// True after a click, so scroll arrows stay up without a trackpad swipe.
+    @Published private(set) var windowIsKey = false
+    /// The screenshot folder could not be listed. macOS is waiting on access.
+    @Published private(set) var folderBlocked = false
 
     /// Every qualifying file, including ones past the display cap.
     private(set) var allURLs: [URL] = []
 
-    private(set) var pointerInside = false
     private(set) var dragActive = false
     private(set) var repositioning = false
     var onLayout: (() -> Void)?
@@ -188,12 +193,37 @@ final class Shelf: ObservableObject {
     }
 
     func layoutSize() -> NSSize {
-        if shots.isEmpty { return Metrics.emptyPanel }
+        if shots.isEmpty {
+            return folderBlocked ? NSSize(width: 360, height: 128) : Metrics.emptyPanel
+        }
         return panelSize ?? metrics.defaultPanelSize()
     }
 
     func pointer(inside: Bool) {
+        guard pointerInside != inside else { return }
         pointerInside = inside
+    }
+
+    func setWindowKey(_ key: Bool) {
+        guard windowIsKey != key else { return }
+        windowIsKey = key
+    }
+
+    /// Moves the row when a swipe or scroll wheel is not available.
+    /// Older goes toward the far end. Newer returns toward the latest shot.
+    func step(older: Bool) {
+        let page = carouselPage
+        guard page.maxOffset > 0 else { return }
+        let span = axis == .horizontal ? metrics.hero.width : metrics.hero.height
+        let hop = max(120, span * 0.72)
+        if older {
+            let remaining = page.maxOffset - page.appliedOffset
+            guard page.showsOlder, remaining > 1 else { return }
+            scrub(by: -min(hop, remaining))
+        } else {
+            guard page.showsNewer, page.appliedOffset > 1 else { return }
+            scrub(by: min(hop, page.appliedOffset))
+        }
     }
 
     /// Slides the list with the pointer. A move along the list carries the
@@ -402,6 +432,8 @@ final class Shelf: ObservableObject {
         }
         menu.addItem(axisItem("Horizontal", axis: .horizontal))
         menu.addItem(axisItem("Vertical", axis: .vertical))
+        menu.addItem(.separator())
+        menu.addItem(ClosureMenuItem("Quit ShotPanel") { NSApp.terminate(nil) })
         return menu
     }
 
@@ -436,6 +468,10 @@ final class Shelf: ObservableObject {
         return item
     }
 
+    private static func canRead(_ folder: URL) -> Bool {
+        (try? FileManager.default.contentsOfDirectory(atPath: folder.path)) != nil
+    }
+
     private func startWatch(folder: URL) {
         watcher?.stop()
         primed = false
@@ -444,6 +480,7 @@ final class Shelf: ObservableObject {
             .appendingPathComponent("Desktop", isDirectory: true)
             .standardizedFileURL.path
         watchesDesktop = folder.standardizedFileURL.path == desktop
+        folderBlocked = !Self.canRead(folder)
         NSLog("ShotPanel watching \(folder.path)")
         let watcher = ScreenshotWatcher(folder: folder)
         watcher.onChange = { [weak self] in self?.refresh() }

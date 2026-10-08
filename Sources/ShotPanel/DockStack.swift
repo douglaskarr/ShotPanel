@@ -32,6 +32,9 @@ enum DockStack {
 
     /// Shelf refreshes after a Dock drag has moved an original to the Trash.
     static var onFilesTrashed: (() -> Void)?
+    /// The tile is saved, and the Dock has not been reloaded. Reloading it
+    /// can gather windows from other desktops onto the current one.
+    static var needsDockReload = false
 
     static var support: URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -214,11 +217,26 @@ enum DockStack {
             NSLog("ShotPanel: could not save the Dock stack")
             return
         }
+        // Restarting the Dock collects windows from every desktop onto the
+        // one in front. That is what made a first launch look like every app
+        // had opened. With one desktop there is nowhere else for them to be.
+        guard FullScreen.spaceCount() <= 1 else {
+            needsDockReload = true
+            NSLog("ShotPanel: saved the Dock stack without reloading the Dock")
+            return
+        }
+        reloadDock()
+    }
+
+    /// Reloads the Dock so a saved stack tile appears. Call this only after
+    /// the user agrees, unless this Mac has a single desktop.
+    static func reloadDock() {
         let proc = Process()
         proc.executableURL = URL(fileURLWithPath: "/usr/bin/killall")
         proc.arguments = ["Dock"]
         do {
             try proc.run()
+            needsDockReload = false
         } catch {
             NSLog("ShotPanel: could not refresh the Dock: \(error.localizedDescription)")
         }

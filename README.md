@@ -8,9 +8,9 @@ ShotPanel is a native macOS app. It does not take the screenshot. Cmd-Shift-3, C
 
 ShotPanel is free to use, distribute, and modify under the [MIT license](LICENSE).
 
-[Download ShotPanel 1.0.0](https://github.com/douglaskarr/ShotPanel/releases/download/v1.0.0/ShotPanel-1.0.0.dmg) for macOS 14 or later.
+[Download ShotPanel 1.1.0](https://github.com/douglaskarr/ShotPanel/releases/download/v1.1.0/ShotPanel-1.1.0.dmg) for macOS 14 or later.
 
-Open the disk image and drag ShotPanel to Applications. The first time you open it, macOS may say it cannot verify the developer. Right-click ShotPanel, choose Open, then Open again. macOS may also ask before ShotPanel can read the Desktop.
+Open the disk image and drag ShotPanel to Applications. The first time you open it, macOS may say it cannot verify the developer. Right-click ShotPanel, choose Open, then Open again. ShotPanel asks to read your screenshot folder before the panel opens, and asks whether to start at login. During screen sharing, the macOS question can appear on the Mac itself.
 
 ## What it does
 
@@ -20,9 +20,9 @@ Right-click the panel and choose Horizontal or Vertical. Vertical stacks the sam
 
 Click a shot to select it. Copy and Delete appear on that image, and the bar shows its name, date and time, pixel size, and file size. Copy puts the image on the clipboard. Delete asks “Are you sure?” on the image, then moves that one file to the Trash. Delete all asks in the bar, then moves the whole group. Double-click, or right-click and choose Open, opens the file. Drag a shot into another app, a browser, or a folder. A drag that starts on a photo moves that one file.
 
-Slide along the list with a finger on the top of the mouse, or press the trackpad and slide, and the row follows. Drag the bar at the bottom to move the panel. The minus button, or Cmd-M, sends it to the Dock. While any screenshot is in the group, a ShotPanel folder also sits in the Dock just after Downloads, so the same files are one click from the Trash.
+Slide along the list with a finger on the top of the mouse, or press the trackpad and slide, and the row follows. Point at the panel and arrows appear on the ends that still have shots. The arrow keys move the row too. Drag the bar at the bottom to move the panel. The minus button, or Cmd-M, sends it to the Dock. While any screenshot is in the group, a ShotPanel folder also sits in the Dock just after Downloads, so the same files are one click from the Trash.
 
-The menu bar icon can hide the panel, show it, turn Desktop capture on or off, or delete the group. On first launch, ShotPanel can keep new screenshots off the Desktop while it is open: shots already in the screenshot folder move into the panel, new ones skip the Desktop, and the floating thumbnail is turned off. Quitting, or turning that option off, restores the previous save location. The panel hides while a Space is in full screen.
+The menu bar icon can hide the panel, show it, turn Desktop capture on or off, open ShotPanel at login, or delete the group. On first launch, ShotPanel can keep new screenshots off the Desktop while it is open: shots already in the screenshot folder move into the panel, new ones skip the Desktop, and the floating thumbnail is turned off. Quitting, or turning that option off, restores the previous save location. The panel hides while a Space is in full screen.
 
 ## Use it
 

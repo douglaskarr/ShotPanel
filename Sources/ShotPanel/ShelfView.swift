@@ -44,6 +44,14 @@ struct ShelfRoot: View {
         }
     }
 
+    private var emptyDetail: String {
+        if shelf.folderBlocked {
+            return "Allow ShotPanel to read this folder. That question may be on the Mac itself. Quit is in the menu bar, or press ⌘Q."
+        }
+        if shelf.inboxOn { return "New screenshots land here" }
+        return shelf.watchesDesktop ? "Watching the Desktop" : "Watching your screenshot folder"
+    }
+
     private var empty: some View {
         HStack(spacing: 12) {
             Image(systemName: "photo.on.rectangle.angled")
@@ -52,14 +60,15 @@ struct ShelfRoot: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("ShotPanel")
                     .font(.system(size: 13, weight: .semibold))
-                Text(shelf.inboxOn ? "New screenshots land here" : (shelf.watchesDesktop ? "Watching the Desktop" : "Watching your screenshot folder"))
+                Text(emptyDetail)
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 16)
-        .frame(width: 300, height: 96)
+        .frame(width: shelf.layoutSize().width, height: shelf.layoutSize().height)
         .background { widgetChrome }
         .overlay(alignment: .topLeading) { minimizeMark }
         .overlay {
@@ -132,6 +141,37 @@ private struct HeroCard: View {
             // cover the shots stacked under the first one.
             photoActions
                 .allowsHitTesting(false)
+        }
+        .overlay(alignment: .leading) { scrollArrow(older: false, edge: .leading) }
+        .overlay(alignment: .trailing) { scrollArrow(older: true, edge: .trailing) }
+        .overlay(alignment: .top) { scrollArrow(older: false, edge: .top) }
+        .overlay(alignment: .bottom) { scrollArrow(older: true, edge: .bottom) }
+    }
+
+    /// Shown while the pointer is over the panel, or after it has been clicked.
+    /// A screen-sharing session can move and click without delivering a swipe.
+    /// Padding places the control. An offset would keep the old click target.
+    @ViewBuilder
+    private func scrollArrow(older: Bool, edge: Alignment) -> some View {
+        let page = shelf.carouselPage
+        let wanted = older ? page.showsOlder : page.showsNewer
+        let vertical = shelf.axis == .vertical
+        let matches = vertical ? (edge == .top || edge == .bottom) : (edge == .leading || edge == .trailing)
+        if interactive, shelf.pointerInside || shelf.windowIsKey, wanted, matches {
+            let symbol = vertical
+                ? (older ? "chevron.down" : "chevron.up")
+                : (older ? "chevron.right" : "chevron.left")
+            Image(systemName: symbol)
+                .font(.system(size: 13, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: 28, height: 28)
+                .background(Color.black.opacity(0.55), in: Circle())
+                .help(older ? "Older screenshots" : "Newer screenshots")
+                .allowsHitTesting(false)
+            .padding(.leading, edge == .leading ? 8 : 0)
+            .padding(.trailing, edge == .trailing ? 8 : 0)
+            .padding(.top, edge == .top ? 8 : 0)
+            .padding(.bottom, edge == .bottom ? shelf.metrics.footer + 8 : (edge == .leading || edge == .trailing ? shelf.metrics.footer : 0))
         }
     }
 
